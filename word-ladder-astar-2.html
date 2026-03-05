@@ -1,0 +1,160 @@
+<!DOCTYPE html>
+<html lang="es">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Escalera de Palabras · A*</title>
+  <link
+    href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=IBM+Plex+Mono:wght@400;600&family=IBM+Plex+Sans:wght@300;400;600&display=swap"
+    rel="stylesheet">
+  <link rel="stylesheet" href="./word-ladder-astar-2.css">
+</head>
+
+<body>
+  <div class="app">
+
+    <header>
+      <div class="title">Escalera de Palabras</div>
+      <div class="subtitle">Word Ladder · Visualización A* Paso a Paso</div>
+      <div class="badge">⬡ &nbsp; f(n) = g(n) + h(n) · Búsqueda Heurística Óptima</div>
+    </header>
+
+    <!-- Formula reference -->
+    <div class="formula-box">
+      <span><span class="ff">f(n)</span> = <span class="fg">g(n)</span> + <span class="fh">h(n)</span></span>
+      <span class="fnote"><span class="fg">g</span> = pasos dados desde el inicio</span>
+      <span class="fnote"><span class="fh">h</span> = distancia de Hamming hasta la meta (letras distintas)</span>
+      <span class="fnote"><span class="ff">f</span> = prioridad en la lista abierta (menor = mejor)</span>
+    </div>
+
+    <!-- Inputs -->
+    <div class="input-row">
+      <div class="panel">
+        <div class="panel-label">Palabra Inicial</div>
+        <input class="word-input" id="startWord" maxlength="4" value="GATO"
+          oninput="this.value=this.value.toUpperCase().replace(/[^A-Z]/g,'')">
+      </div>
+      <div class="arrow-col">→</div>
+      <div class="panel">
+        <div class="panel-label">Palabra Final</div>
+        <input class="word-input" id="endWord" maxlength="4" value="LOBO"
+          oninput="this.value=this.value.toUpperCase().replace(/[^A-Z]/g,'')">
+      </div>
+    </div>
+
+    <div class="presets">
+      <span class="preset-lbl">Ejemplos:</span>
+      <button class="preset-btn" onclick="loadPreset('GATO','LOBO')">GATO→LOBO</button>
+      <button class="preset-btn" onclick="loadPreset('DAME','BESO')">DAME→BESO</button>
+      <button class="preset-btn" onclick="loadPreset('CARA','NOTA')">CARA→NOTA</button>
+      <button class="preset-btn" onclick="loadPreset('LUNA','ROCA')">LUNA→ROCA</button>
+      <button class="preset-btn" onclick="loadPreset('BOCA','DAMA')">BOCA→DAMA</button>
+      <button class="preset-btn" onclick="loadPreset('PALO','GIRO')">PALO→GIRO</button>
+    </div>
+
+    <div class="btn-row">
+      <button class="btn btn-primary" id="solveBtn" onclick="startSolving()">⬡ Resolver con A*</button>
+      <button class="btn btn-secondary" id="playBtn" onclick="togglePlayback()" disabled>▶ Play</button>
+      <button class="btn btn-secondary" id="stepBtn" onclick="advanceStepForward()" disabled>Step →</button>
+      <button class="btn btn-secondary" id="resetBtn" onclick="resetVisualization()" disabled>↺ Reset</button>
+    </div>
+
+    <!-- Controls -->
+    <div class="ctrl-bar">
+      <span class="ctrl-lbl">Velocidad</span>
+      <input class="speed-slider" type="range" id="speedSlider" min="1" max="10" value="5">
+      <span class="ctrl-lbl">Paso</span>
+      <span class="step-ctr" id="stepCtr">0 / 0</span>
+      <span class="explain-txt" id="explainTxt">—</span>
+    </div>
+
+    <!-- Legend -->
+    <div class="legend">
+      <div class="leg">
+        <div class="leg-dot" style="background:rgba(255,107,53,0.5);border:1px solid rgba(255,107,53,0.6)"></div>Nodo
+        actual
+      </div>
+      <div class="leg">
+        <div class="leg-dot" style="background:rgba(0,229,255,0.15);border:1px solid rgba(0,229,255,0.4)"></div>Lista
+        Abierta — por explorar
+      </div>
+      <div class="leg">
+        <div class="leg-dot" style="background:rgba(167,139,250,0.1);border:1px solid rgba(167,139,250,0.3)"></div>Lista
+        Cerrada — explorados
+      </div>
+      <div class="leg">
+        <div class="leg-dot" style="background:rgba(34,197,94,0.12);border:1px solid rgba(34,197,94,0.4)"></div>Camino
+        óptimo
+      </div>
+    </div>
+
+    <!-- Open / Closed lists -->
+    <div class="viz-grid">
+      <div class="viz-panel">
+        <div class="viz-header">
+          <span class="viz-title" style="color:#00e5ff">⬡ Lista Abierta (Frontera)</span>
+          <span class="viz-count" id="openCount" style="color:#00e5ff;border-color:rgba(0,229,255,0.3)">0</span>
+        </div>
+        <div class="viz-body" id="openList">
+          <div class="empty-msg">Vacía</div>
+        </div>
+      </div>
+      <div class="viz-panel">
+        <div class="viz-header">
+          <span class="viz-title" style="color:#a78bfa">⬡ Lista Cerrada (Explorados)</span>
+          <span class="viz-count" id="closedCount" style="color:#a78bfa;border-color:rgba(167,139,250,0.3)">0</span>
+        </div>
+        <div class="viz-body" id="closedList">
+          <div class="empty-msg">Vacía</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Step log -->
+    <div class="viz-panel" style="margin-bottom:1rem">
+      <div class="viz-header">
+        <span class="viz-title" style="color:var(--text)">📋 Registro de Decisiones A*</span>
+        <span class="viz-count" id="logCount" style="color:var(--muted);border-color:var(--border)">0</span>
+      </div>
+      <div class="viz-body" id="stepLog" style="max-height:200px;">
+        <div class="empty-msg">Los pasos del algoritmo aparecerán aquí</div>
+      </div>
+    </div>
+
+    <!-- Stats -->
+    <div class="stats-row" id="statsRow" style="display:none">
+      <div class="stat">
+        <div class="stat-val" id="sSteps">-</div>
+        <div class="stat-key">Pasos</div>
+      </div>
+      <div class="stat">
+        <div class="stat-val" id="sExplored">-</div>
+        <div class="stat-key">Cerrados</div>
+      </div>
+      <div class="stat">
+        <div class="stat-val" id="sMaxOpen">-</div>
+        <div class="stat-key">Max abierta</div>
+      </div>
+      <div class="stat">
+        <div class="stat-val" id="sTime">-</div>
+        <div class="stat-key">ms</div>
+      </div>
+    </div>
+
+    <!-- Final path -->
+    <div class="path-area">
+      <div class="path-header">
+        <span class="path-title">Camino Óptimo Encontrado</span>
+        <span class="result-badge badge-idle" id="pathBadge">Esperando</span>
+      </div>
+      <div class="path-body" id="pathBody">
+        <div class="empty-msg">El camino aparecerá al finalizar</div>
+      </div>
+    </div>
+
+  </div>
+  <script src="./word-ladder-astar-2.js"></script>
+</body>
+
+</html>
