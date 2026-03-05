@@ -1,0 +1,308 @@
+<!DOCTYPE html>
+<html lang="es">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Cómo funciona A* — Explicado</title>
+  <link
+    href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=IBM+Plex+Mono:wght@400;600&family=IBM+Plex+Sans:wght@300;400;600&display=swap"
+    rel="stylesheet">
+  <link rel="stylesheet" href="./astar-explicado.css">
+</head>
+
+<body>
+  <div class="app">
+
+    <header>
+      <div class="title">¿Cómo funciona A*?</div>
+      <div class="subtitle">Guía interactiva · Escalera de palabras</div>
+    </header>
+
+    <!-- ═══════════════════════════════════════════════
+     1. EL PROBLEMA
+═══════════════════════════════════════════════ -->
+    <div class="sec-title"><span class="sec-num">01 /</span> El Problema que A* resuelve</div>
+
+    <div class="card">
+      <p class="prose">
+        Queremos ir de <strong class="hi-cyan">GATO</strong> a <strong class="hi-orange">LOBO</strong>
+        cambiando <strong>una sola letra a la vez</strong>, y cada palabra intermedia debe ser
+        una palabra válida en el diccionario.<br><br>
+        La pregunta es: <em>¿cuál es el camino más corto?</em>
+        No queremos cualquier camino, queremos el <strong class="hi-green">óptimo</strong>.
+      </p>
+      <div style="margin-top:1rem;display:flex;align-items:center;gap:0.5rem;flex-wrap:wrap;">
+        <span class="pill pill-cyan">GATO</span>
+        <span style="color:var(--muted)">→</span>
+        <span class="pill pill-purple">GALO</span>
+        <span style="color:var(--muted)">→</span>
+        <span class="pill pill-purple">MALO</span>
+        <span style="color:var(--muted)">→</span>
+        <span class="pill pill-purple">MOLO</span>
+        <span style="color:var(--muted)">→</span>
+        <span class="pill pill-orange">LOBO</span>
+        <span style="color:var(--muted);font-size:0.75rem;font-family:'IBM Plex Mono',monospace">4 pasos ✓</span>
+      </div>
+    </div>
+
+    <div class="card card-accent2">
+      <p class="prose">
+        La fuerza bruta revisaría <em>todas las combinaciones posibles</em> — hay 26 letras y 4 posiciones,
+        eso es miles de palabras por explorar en cada paso. A* es inteligente: usa una
+        <strong class="hi-orange">heurística</strong> para priorizar los caminos más prometedores
+        y <strong>evitar explorar caminos que claramente van en la dirección equivocada</strong>.
+      </p>
+    </div>
+
+    <!-- ═══════════════════════════════════════════════
+     2. LA FÓRMULA
+═══════════════════════════════════════════════ -->
+    <div class="sec-title"><span class="sec-num">02 /</span> La fórmula mágica</div>
+
+    <div class="card">
+      <div class="formula">
+        <span class="ff">f(n)</span> = <span class="fg">g(n)</span> + <span class="fh">h(n)</span>
+      </div>
+      <p class="prose">Esta es <strong>toda la magia</strong>. Cada palabra (nodo) tiene tres valores:</p>
+      <br>
+      <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:1rem;margin-top:0.5rem;">
+        <div
+          style="background:rgba(0,229,255,0.05);border:1px solid rgba(0,229,255,0.2);border-radius:8px;padding:1rem;">
+          <div style="font-family:'Bebas Neue',sans-serif;font-size:1.8rem;color:var(--accent);">g(n)</div>
+          <div style="font-size:0.85rem;line-height:1.6;color:#c0c0d8;margin-top:0.3rem;">
+            <strong>Costo real acumulado.</strong><br>
+            ¿Cuántos pasos di desde el inicio hasta aquí?<br>
+            <code>GATO → GALO</code> tiene <code>g=1</code><br>
+            <code>GATO → GALO → MALO</code> tiene <code>g=2</code>
+          </div>
+        </div>
+        <div
+          style="background:rgba(255,107,53,0.05);border:1px solid rgba(255,107,53,0.2);border-radius:8px;padding:1rem;">
+          <div style="font-family:'Bebas Neue',sans-serif;font-size:1.8rem;color:var(--accent2);">h(n)</div>
+          <div style="font-size:0.85rem;line-height:1.6;color:#c0c0d8;margin-top:0.3rem;">
+            <strong>Estimación heurística.</strong><br>
+            ¿Cuántas letras son distintas a la meta?<br>
+            <code>MALO</code> vs <code>LOBO</code> → 3 letras distintas → <code>h=3</code><br>
+            Es una <em>estimación mínima</em> del trabajo restante.
+          </div>
+        </div>
+        <div
+          style="background:rgba(167,139,250,0.05);border:1px solid rgba(167,139,250,0.2);border-radius:8px;padding:1rem;">
+          <div style="font-family:'Bebas Neue',sans-serif;font-size:1.8rem;color:var(--accent3);">f(n)</div>
+          <div style="font-size:0.85rem;line-height:1.6;color:#c0c0d8;margin-top:0.3rem;">
+            <strong>Prioridad total del nodo.</strong><br>
+            La suma de los dos anteriores.<br>
+            A* siempre expande el nodo con <em>menor f</em>.<br>
+            Eso garantiza encontrar el camino óptimo.
+          </div>
+        </div>
+      </div>
+      <div class="analogy" style="margin-top:1.2rem;">
+        <span class="analogy-icon">🗺️</span>
+        <strong>Analogía:</strong> Es como el GPS. <code>g</code> = kilómetros ya recorridos.
+        <code>h</code> = distancia en línea recta hasta el destino (estimación).
+        <code>f</code> = costo total estimado del viaje. El GPS siempre toma la ruta con menor <code>f</code>.
+      </div>
+    </div>
+
+    <!-- ═══════════════════════════════════════════════
+     3. LAS DOS LISTAS
+═══════════════════════════════════════════════ -->
+    <div class="sec-title"><span class="sec-num">03 /</span> Las dos estructuras clave</div>
+
+    <div class="card card-accent3">
+      <p class="prose">A* mantiene dos listas durante su ejecución. Son el corazón del algoritmo:</p>
+      <br>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:1rem;">
+        <div
+          style="background:rgba(0,229,255,0.05);border:1px solid rgba(0,229,255,0.25);border-radius:8px;padding:1rem;">
+          <div
+            style="font-family:'IBM Plex Mono',monospace;font-size:0.62rem;letter-spacing:0.15em;text-transform:uppercase;color:var(--accent);margin-bottom:0.5rem;">
+            ⬡ Lista Abierta (Open)</div>
+          <p style="font-size:0.85rem;line-height:1.65;color:#c0c0d8;">
+            Nodos <strong>descubiertos pero no explorados</strong>.<br>
+            Es la "frontera" de lo que sabemos.<br>
+            Cada vez que descubrimos vecinos nuevos, los metemos aquí.<br>
+            <strong>Siempre sacamos el que tenga menor f.</strong>
+          </p>
+        </div>
+        <div
+          style="background:rgba(167,139,250,0.05);border:1px solid rgba(167,139,250,0.25);border-radius:8px;padding:1rem;">
+          <div
+            style="font-family:'IBM Plex Mono',monospace;font-size:0.62rem;letter-spacing:0.15em;text-transform:uppercase;color:var(--accent3);margin-bottom:0.5rem;">
+            ⬡ Lista Cerrada (Closed)</div>
+          <p style="font-size:0.85rem;line-height:1.65;color:#c0c0d8;">
+            Nodos <strong>completamente explorados</strong>.<br>
+            Ya encontramos el mejor camino para llegar a ellos.<br>
+            No hace falta revisarlos de nuevo.<br>
+            <strong>Nunca volvemos a un nodo cerrado.</strong>
+          </p>
+        </div>
+      </div>
+      <div class="analogy" style="margin-top:1rem;">
+        <span class="analogy-icon">🏙️</span>
+        <strong>Analogía:</strong> Imagina explorar una ciudad. La lista <em>abierta</em> son las calles que sabes que
+        existen pero aún no recorriste.
+        La lista <em>cerrada</em> son las calles ya recorridas y descartadas. Siempre eliges la calle con el mejor
+        potencial (menor f).
+      </div>
+    </div>
+
+    <!-- ═══════════════════════════════════════════════
+     4. DEMO INTERACTIVO PASO A PASO
+═══════════════════════════════════════════════ -->
+    <div class="sec-title"><span class="sec-num">04 /</span> Simulación manual: GATO → LOBO</div>
+
+    <div class="card card-green">
+      <p class="prose" style="margin-bottom:1rem;">Aquí puedes ver <strong>exactamente</strong> qué hace A* en cada
+        iteración, con los valores calculados:</p>
+
+      <div class="demo-grid">
+        <div class="demo-panel">
+          <div class="demo-header" style="color:var(--accent)">⬡ Lista Abierta</div>
+          <div class="demo-body" id="demoOpen">
+            <div class="nodes-wrap" id="demoOpenNodes"></div>
+          </div>
+        </div>
+        <div class="demo-panel">
+          <div class="demo-header" style="color:var(--accent3)">⬡ Lista Cerrada</div>
+          <div class="demo-body" id="demoClosed">
+            <div class="nodes-wrap" id="demoClosedNodes"></div>
+          </div>
+        </div>
+      </div>
+
+      <div class="demo-explain" id="demoExplain">Presiona <strong>Siguiente →</strong> para comenzar la simulación.
+      </div>
+
+      <div class="demo-nav">
+        <button class="demo-btn" id="demoPrev" onclick="demoStep(-1)" disabled>← Anterior</button>
+        <span class="demo-step-lbl" id="demoStepLbl">Paso 0 / 7</span>
+        <button class="demo-btn" id="demoNext" onclick="demoStep(1)">Siguiente →</button>
+      </div>
+    </div>
+
+    <!-- ═══════════════════════════════════════════════
+     5. EL CÓDIGO ANOTADO
+═══════════════════════════════════════════════ -->
+    <div class="sec-title"><span class="sec-num">05 /</span> El código anotado — haz clic en cada línea</div>
+
+    <div class="card">
+      <p class="prose" style="margin-bottom:1rem;">
+        Este es el <strong>núcleo exacto</strong> del algoritmo tal como está en el juego.
+        <em>Haz clic en cualquier línea para ver una explicación detallada.</em>
+      </p>
+
+      <div class="code-block" id="codeBlock"></div>
+    </div>
+
+    <!-- ═══════════════════════════════════════════════
+     6. ¿POR QUÉ A* Y NO OTRO?
+═══════════════════════════════════════════════ -->
+    <div class="sec-title"><span class="sec-num">06 /</span> ¿Por qué A* y no otro algoritmo?</div>
+
+    <div class="card">
+      <table class="cmp-table">
+        <thead>
+          <tr>
+            <th>Algoritmo</th>
+            <th>Estrategia</th>
+            <th>Encuentra óptimo</th>
+            <th>Eficiente</th>
+            <th>Usa heurística</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td><strong>Fuerza bruta</strong></td>
+            <td style="color:var(--muted);font-size:0.8rem;">Prueba todo</td>
+            <td><span class="tag tag-yes">Sí</span></td>
+            <td><span class="tag tag-no">No</span></td>
+            <td><span class="tag tag-no">No</span></td>
+          </tr>
+          <tr>
+            <td><strong>BFS</strong> (por anchura)</td>
+            <td style="color:var(--muted);font-size:0.8rem;">Nivel por nivel</td>
+            <td><span class="tag tag-yes">Sí</span></td>
+            <td><span class="tag tag-maybe">Regular</span></td>
+            <td><span class="tag tag-no">No</span></td>
+          </tr>
+          <tr>
+            <td><strong>DFS</strong> (por profundidad)</td>
+            <td style="color:var(--muted);font-size:0.8rem;">Profundiza primero</td>
+            <td><span class="tag tag-no">No</span></td>
+            <td><span class="tag tag-maybe">Regular</span></td>
+            <td><span class="tag tag-no">No</span></td>
+          </tr>
+          <tr>
+            <td><strong>Greedy</strong> (voraz)</td>
+            <td style="color:var(--muted);font-size:0.8rem;">Solo usa h(n)</td>
+            <td><span class="tag tag-no">No siempre</span></td>
+            <td><span class="tag tag-yes">Sí</span></td>
+            <td><span class="tag tag-yes">Sí</span></td>
+          </tr>
+          <tr style="background:rgba(34,197,94,0.04);">
+            <td><strong style="color:var(--green)">A* ⬡</strong></td>
+            <td style="color:var(--muted);font-size:0.8rem;">Usa f = g + h</td>
+            <td><span class="tag tag-yes">Sí ✓</span></td>
+            <td><span class="tag tag-yes">Sí ✓</span></td>
+            <td><span class="tag tag-yes">Sí ✓</span></td>
+          </tr>
+        </tbody>
+      </table>
+      <div class="analogy">
+        <span class="analogy-icon">🧠</span>
+        <strong>BFS</strong> es como buscar tus llaves revisando cada cajón en orden — garantiza encontrarlas pero
+        revisa muchos cajones inútiles.
+        <strong>A*</strong> es como buscarlas recordando que las usaste ayer en la cocina — va directo a donde es más
+        probable.
+      </div>
+    </div>
+
+    <!-- ═══════════════════════════════════════════════
+     7. RESUMEN
+═══════════════════════════════════════════════ -->
+    <div class="sec-title"><span class="sec-num">07 /</span> Resumen del loop principal</div>
+    <div class="card card-accent3">
+      <div class="pseudo">
+        <span class="p-cm">// El loop principal de A* en pseudocódigo</span>
+
+        <span class="p-kw">mientras</span> lista_abierta <span class="p-kw">no esté vacía</span>:
+
+        <span class="p-cm"> // 1. Tomar el nodo con menor f (el más prometedor)</span>
+        <span class="p-vr"> actual</span> = nodo con menor <span class="p-fn">f(n)</span> en lista_abierta
+        <span class="p-vr"> lista_abierta</span>.eliminar(<span class="p-vr">actual</span>)
+
+        <span class="p-cm"> // 2. ¿Llegamos a la meta?</span>
+        <span class="p-kw"> si</span> <span class="p-vr">actual</span> == meta: <span class="p-kw">retornar</span>
+        camino ✓
+
+        <span class="p-cm"> // 3. Marcar como explorado</span>
+        <span class="p-vr"> lista_cerrada</span>.agregar(<span class="p-vr">actual</span>)
+
+        <span class="p-cm"> // 4. Explorar sus vecinos</span>
+        <span class="p-kw"> para cada</span> <span class="p-vr">vecino</span> <span class="p-kw">de</span> <span
+          class="p-fn">vecinos</span>(<span class="p-vr">actual</span>):
+        <span class="p-kw"> si</span> vecino <span class="p-kw">ya está en</span> lista_cerrada: <span
+          class="p-kw">saltar</span>
+        <span class="p-cm"> // Calcular nuevo costo</span>
+        <span class="p-vr"> g_nuevo</span> = <span class="p-vr">actual</span>.g + <span class="p-nu">1</span>
+        <span class="p-vr"> h_nuevo</span> = <span class="p-fn">hamming</span>(<span class="p-vr">vecino</span>, meta)
+        <span class="p-vr"> f_nuevo</span> = <span class="p-vr">g_nuevo</span> + <span class="p-vr">h_nuevo</span>
+        <span class="p-cm"> // Agregar/actualizar en lista abierta si es mejor</span>
+        <span class="p-kw"> si</span> vecino <span class="p-kw">no está en</span> lista_abierta <span
+          class="p-kw">o</span> g_nuevo &lt; vecino.g:
+        <span class="p-vr"> lista_abierta</span>.agregar(<span class="p-vr">vecino</span> <span class="p-kw">con</span>
+        f=<span class="p-vr">f_nuevo</span>)
+
+        <span class="p-kw">retornar</span> "sin solución"
+      </div>
+    </div>
+
+  </div><!-- end .app -->
+
+  <script src="./astar-explicado.js"></script>
+</body>
+
+</html>
