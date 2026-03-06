@@ -1,0 +1,173 @@
+<!DOCTYPE html>
+<html lang="es">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Escalera de Palabras · A*</title>
+  <link
+    href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=IBM+Plex+Mono:wght@400;600&family=IBM+Plex+Sans:wght@300;400;600&display=swap"
+    rel="stylesheet">
+  <link rel="stylesheet" href="./style.css">
+  <script src="https://d3js.org/d3.v7.min.js"></script>
+</head>
+
+<body>
+  <div class="app">
+
+    <div class="theme-controls">
+      <button class="icon-btn" id="langToggle" onclick="toggleLanguage()">EN</button>
+      <button class="icon-btn" id="themeToggle" onclick="toggleTheme()">☀️</button>
+    </div>
+
+    <header>
+      <div class="title" data-i18n="APP_TITLE">Escalera de Palabras</div>
+      <div class="subtitle" data-i18n="APP_SUB">Word Ladder · Visualización A* Paso a Paso</div>
+      <div class="badge" data-i18n="APP_BADGE">⬡ &nbsp; f(n) = g(n) + h(n) · Búsqueda Heurística Óptima</div>
+    </header>
+
+    <!-- Formula reference -->
+    <div class="formula-box">
+      <span><span class="ff">f(n)</span> = <span class="fg">g(n)</span> + <span class="fh">h(n)</span></span>
+      <span class="fnote" data-i18n="F_NOTE_G"><span class="fg">g</span> = pasos dados desde el inicio</span>
+      <span class="fnote" data-i18n="F_NOTE_H"><span class="fh">h</span> = distancia de Hamming hasta la meta</span>
+      <span class="fnote" data-i18n="F_NOTE_F"><span class="ff">f</span> = prioridad en la lista abierta (menor =
+        mejor)</span>
+    </div>
+
+    <!-- Inputs -->
+    <div class="input-row">
+      <div class="panel">
+        <div class="panel-label" data-i18n="LBL_START">Palabra Inicial</div>
+        <input class="word-input" id="startWord" maxlength="4" value="GATO"
+          oninput="this.value=this.value.toUpperCase().replace(/[^A-Z]/g,'')">
+      </div>
+      <div class="arrow-col">→</div>
+      <div class="panel">
+        <div class="panel-label" data-i18n="LBL_END">Palabra Final</div>
+        <input class="word-input" id="endWord" maxlength="4" value="LOBO"
+          oninput="this.value=this.value.toUpperCase().replace(/[^A-Z]/g,'')">
+      </div>
+    </div>
+
+    <div class="presets">
+      <span class="preset-lbl" data-i18n="LBL_PRESETS">Ejemplos:</span>
+      <button class="preset-btn" onclick="loadPreset('GATO','LOBO')">GATO→LOBO</button>
+      <button class="preset-btn" onclick="loadPreset('DAME','BESO')">DAME→BESO</button>
+      <button class="preset-btn" onclick="loadPreset('CARA','NOTA')">CARA→NOTA</button>
+      <button class="preset-btn" onclick="loadPreset('LUNA','ROCA')">LUNA→ROCA</button>
+      <button class="preset-btn" onclick="loadPreset('BOCA','DAMA')">BOCA→DAMA</button>
+      <button class="preset-btn" onclick="loadPreset('PALO','GIRO')">PALO→GIRO</button>
+    </div>
+
+    <div class="btn-row">
+      <button class="btn btn-primary" id="solveBtn" onclick="startSolving()" data-i18n="BTN_SOLVE">⬡ Resolver con
+        A*</button>
+      <button class="btn btn-secondary" id="playBtn" onclick="togglePlayback()" disabled data-i18n="BTN_PLAY">▶
+        Play</button>
+      <button class="btn btn-secondary" id="stepBtn" onclick="advanceStepForward()" disabled data-i18n="BTN_STEP">Step
+        →</button>
+      <button class="btn btn-secondary" id="resetBtn" onclick="resetVisualization()" disabled data-i18n="BTN_RESET">↺
+        Reset</button>
+    </div>
+
+    <!-- Controls -->
+    <div class="ctrl-bar">
+      <span class="ctrl-lbl" data-i18n="LBL_SPEED">Velocidad</span>
+      <input class="speed-slider" type="range" id="speedSlider" min="1" max="10" value="5">
+      <span class="ctrl-lbl" data-i18n="LBL_STEP">Paso</span>
+      <span class="step-ctr" id="stepCtr">0 / 0</span>
+      <span class="explain-txt" id="explainTxt">—</span>
+    </div>
+
+    <!-- Legend -->
+    <div class="legend">
+      <div class="leg">
+        <div class="leg-dot" style="background:rgba(255,107,53,0.5);border:1px solid rgba(255,107,53,0.6)"></div><span
+          data-i18n="LEG_NODE">Nodo actual</span>
+      </div>
+      <div class="leg">
+        <div class="leg-dot" style="background:rgba(0,229,255,0.15);border:1px solid rgba(0,229,255,0.4)"></div><span
+          data-i18n="LEG_OPEN">Lista Abierta — por explorar</span>
+      </div>
+      <div class="leg">
+        <div class="leg-dot" style="background:rgba(167,139,250,0.1);border:1px solid rgba(167,139,250,0.3)"></div><span
+          data-i18n="LEG_CLOSED">Lista Cerrada — explorados</span>
+      </div>
+      <div class="leg">
+        <div class="leg-dot" style="background:rgba(34,197,94,0.12);border:1px solid rgba(34,197,94,0.4)"></div><span
+          data-i18n="LEG_PATH">Camino óptimo</span>
+      </div>
+    </div>
+
+    <!-- Open / Closed lists -->
+    <div class="viz-grid">
+      <div class="viz-panel">
+        <div class="viz-header">
+          <span class="viz-title" style="color:#00e5ff" data-i18n="TITLE_OPEN">⬡ Lista Abierta (Frontera)</span>
+          <span class="viz-count" id="openCount" style="color:#00e5ff;border-color:rgba(0,229,255,0.3)">0</span>
+        </div>
+        <div class="viz-body" id="openList">
+          <div class="empty-msg" data-i18n="MSG_EMPTY">Vacía</div>
+        </div>
+      </div>
+      <div class="viz-panel">
+        <div class="viz-header">
+          <span class="viz-title" style="color:#a78bfa" data-i18n="TITLE_CLOSED">⬡ Lista Cerrada (Explorados)</span>
+          <span class="viz-count" id="closedCount" style="color:#a78bfa;border-color:rgba(167,139,250,0.3)">0</span>
+        </div>
+        <div class="viz-body" id="closedList">
+          <div class="empty-msg" data-i18n="MSG_EMPTY">Vacía</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Step log (Replaced with SVG Tree) -->
+    <div class="viz-panel" style="margin-bottom:1rem">
+      <div class="viz-header">
+        <span class="viz-title" style="color:var(--text)" data-i18n="TITLE_TREE">🌳 Árbol de Exploración A*</span>
+        <!-- Controls specific to the tree view, like zoom fit if needed -->
+      </div>
+      <div class="viz-body tree-container" id="treeView"
+        style="max-height:400px; padding:0; position:relative; overflow:hidden; background: var(--panel2);">
+        <!-- SVG will be injected here -->
+      </div>
+    </div>
+
+    <!-- Stats -->
+    <div class="stats-row" id="statsRow" style="display:none">
+      <div class="stat">
+        <div class="stat-val" id="sSteps">-</div>
+        <div class="stat-key" data-i18n="STAT_STEPS">Pasos</div>
+      </div>
+      <div class="stat">
+        <div class="stat-val" id="sExplored">-</div>
+        <div class="stat-key" data-i18n="STAT_CLOSED">Cerrados</div>
+      </div>
+      <div class="stat">
+        <div class="stat-val" id="sMaxOpen">-</div>
+        <div class="stat-key" data-i18n="STAT_MAX">Max abierta</div>
+      </div>
+      <div class="stat">
+        <div class="stat-val" id="sTime">-</div>
+        <div class="stat-key">ms</div>
+      </div>
+    </div>
+
+    <!-- Final path -->
+    <div class="path-area">
+      <div class="path-header">
+        <span class="path-title" data-i18n="PATH_TITLE">Camino Óptimo Encontrado</span>
+        <span class="result-badge badge-idle" id="pathBadge" data-i18n="PATH_WAIT">Esperando</span>
+      </div>
+      <div class="path-body" id="pathBody">
+        <div class="empty-msg" data-i18n="PATH_NO_PATH">El camino aparecerá al finalizar</div>
+      </div>
+    </div>
+
+  </div>
+  <script src="./i18n.js"></script>
+  <script src="./app.js"></script>
+</body>
+
+</html>

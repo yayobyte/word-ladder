@@ -1,3 +1,4 @@
+
 /* ── Dictionary ── */
 const DICT = new Set([
     "ABRA", "ACTO", "AGUA", "AIRE", "ALBA", "ALMA", "ALTO", "ANCA", "ANTE", "ARCO",
@@ -89,7 +90,8 @@ function runAStarAlgorithm(startWord, goalWord) {
         g: 0,
         h: initialHeuristic,
         f: initialHeuristic,
-        path: [startWord]
+        path: [startWord],
+        parent: null
     });
 
     while (openList.size > 0) {
@@ -140,7 +142,8 @@ function runAStarAlgorithm(startWord, goalWord) {
                     g: neighborGScore,
                     h: neighborHScore,
                     f: neighborFScore,
-                    path: [...bestNodeData.path, neighborWord]
+                    path: [...bestNodeData.path, neighborWord],
+                    parent: bestWord
                 });
             }
         }
@@ -174,8 +177,12 @@ let currentVisualStep = 0;
 let isPlaying = false;
 let playIntervalTimer = null;
 let currentAStarResult = null;
-let uiLogLinesCount = 0;
 let calculationTimeMs = 0;
+
+/* ── D3 Tree Variables ── */
+let svg, gNode, gLink, zoomBehavior, treeLayout, d3Tooltip;
+const svgWidth = 800; // Will be responsive
+const svgHeight = 400;
 
 /* ── DOM Helper Functions ── */
 function loadPreset(startStr, endStr) {
@@ -209,7 +216,7 @@ function renderOpenList(snapshot) {
     document.getElementById('openCount').textContent = snapshot.open.size;
 
     if (!snapshot.open.size) {
-        container.innerHTML = '<div class="empty-msg">Vacía</div>';
+        container.innerHTML = `<div class="empty-msg" data-i18n="MSG_EMPTY">${t('MSG_EMPTY')}</div>`;
         return;
     }
 
@@ -220,21 +227,25 @@ function renderOpenList(snapshot) {
     // Sort items primarily by 'f' score for display
     const sortedNodes = [...snapshot.open.entries()].sort((a, b) => a[1].f - b[1].f);
 
-    sortedNodes.forEach(([word, nodeData]) => {
+    sortedNodes.forEach(([word, nodeData], index) => {
         const chip = document.createElement('div');
         chip.className = 'node-chip node-open';
+        if (index === 0) {
+            chip.className += ' node-best-f';
+        }
+
         chip.textContent = word;
 
-        if (snapshot.newNodes.includes(word)) {
+        if (snapshot.newNodes.includes(word) && index !== 0) {
             chip.style.boxShadow = '0 0 8px rgba(34,197,94,0.6)'; // Highlight new
         }
-        if (snapshot.updNodes.includes(word)) {
+        if (snapshot.updNodes.includes(word) && index !== 0) {
             chip.style.boxShadow = '0 0 8px rgba(255,214,0,0.5)'; // Highlight updated
         }
 
         const scoreTag = document.createElement('div');
         scoreTag.className = 'node-score';
-        scoreTag.textContent = `f=${nodeData.f} g=${nodeData.g} h=${nodeData.h}`;
+        scoreTag.textContent = `f=${nodeData.f}`;
 
         chip.appendChild(scoreTag);
         wrapper.appendChild(chip);
@@ -249,7 +260,7 @@ function renderClosedList(snapshot) {
     document.getElementById('closedCount').textContent = snapshot.closed.size;
 
     if (!snapshot.closed.size) {
-        container.innerHTML = '<div class="empty-msg">Vacía</div>';
+        container.innerHTML = `<div class="empty-msg" data-i18n="MSG_EMPTY">${t('MSG_EMPTY')}</div>`;
         return;
     }
 
@@ -285,27 +296,193 @@ function renderClosedList(snapshot) {
     container.appendChild(wrapper);
 }
 
-/* ── UI Rendering: Activity Log ── */
-function addLogEntry(step, icon, htmlContent) {
-    const logContainer = document.getElementById('stepLog');
+/* ── UI Rendering: Activity Log / Tree ── */
+function initTreeGraph() {
+    const container = document.getElementById('treeView');
+    container.innerHTML = '';
 
-    if (uiLogLinesCount === 0) {
-        logContainer.innerHTML = '';
+    // Create tooltip if it doesn't exist
+    if (!d3Tooltip) {
+        d3Tooltip = d3.select("body").append("div")
+            .attr("class", "d3-tooltip")
+            .style("opacity", 0);
     }
 
-    uiLogLinesCount++;
-    document.getElementById('logCount').textContent = uiLogLinesCount;
+    // Default dimensions, will center based on these but zoom allows panning
+    const width = container.clientWidth || 800;
+    const height = container.clientHeight || 400;
 
-    const entryElement = document.createElement('div');
-    entryElement.className = 'log-entry';
-    entryElement.innerHTML = `
-    <span class="log-step">${step}</span>
-    <span>${icon}</span>
-    <span class="log-text">${htmlContent}</span>
-  `;
+    svg = d3.select(container).append("svg")
+        .attr("class", "tree-svg")
+        .attr("width", "100%")
+        .attr("height", "100%")
+        .attr("viewBox", [0, 0, width, height]);
 
-    logContainer.appendChild(entryElement);
-    logContainer.scrollTop = logContainer.scrollHeight; // Auto-scroll
+    const gWrapper = svg.append("g");
+
+    gLink = gWrapper.append("g")
+        .attr("fill", "none")
+        .attr("stroke", "var(--border)")
+        .attr("stroke-opacity", 0.7)
+        .attr("stroke-width", 1.5);
+
+    gNode = gWrapper.append("g")
+        .attr("cursor", "pointer")
+        .attr("pointer-events", "all");
+
+    // Standard D3 zoom
+    zoomBehavior = d3.zoom()
+        .scaleExtent([0.1, 4])
+        .on("zoom", (event) => {
+            gWrapper.attr("transform", event.transform);
+        });
+
+    svg.call(zoomBehavior);
+    // Initial transform to center top
+    svg.call(zoomBehavior.transform, d3.zoomIdentity.translate(width / 2, 40).scale(1));
+
+    // Define tree layout
+    // nodeSize instead of size allows the tree to grow dynamically without squishing
+    treeLayout = d3.tree().nodeSize([45, 60]);
+}
+
+function renderTreeGraph(snapshot) {
+    if (!svg) initTreeGraph();
+
+    // 1. Build flat array of nodes for d3.stratify
+    const allNodes = new Map();
+
+    // Add all closed nodes
+    for (const [word, data] of snapshot.closed.entries()) {
+        allNodes.set(word, { id: word, parent: data.parent, state: 'closed', f: data.f, g: data.g, h: data.h });
+    }
+    // Add all open nodes
+    for (const [word, data] of snapshot.open.entries()) {
+        // If a word is somehow in both (shouldn't happen in standard A*), closed takes precedence
+        if (!allNodes.has(word)) {
+            allNodes.set(word, { id: word, parent: data.parent, state: 'open', f: data.f, g: data.g, h: data.h });
+        }
+    }
+
+    // Ensure Root has no parent
+    const startWord = snapshot.open.size > 0 ? (snapshot.open.has(snapshot.open.keys().next().value) ? snapshot.open.values().next().value.path[0] : snapshot.closed.values().next().value.path[0]) : null;
+    if (allNodes.has(startWord)) {
+        allNodes.get(startWord).parent = "";
+    }
+
+
+    // Add special states (Path, Current)
+    if (snapshot.optimalPath) {
+        snapshot.optimalPath.forEach(word => {
+            if (allNodes.has(word)) allNodes.get(word).state = 'path';
+        });
+    } else if (snapshot.current && allNodes.has(snapshot.current)) {
+        allNodes.get(snapshot.current).state = 'current';
+    }
+
+    const flatData = Array.from(allNodes.values());
+
+    // Defensive check: If no data, clear and return
+    if (flatData.length === 0) return;
+
+    // 2. Stratify the data
+    const stratify = d3.stratify()
+        .id(d => d.id)
+        .parentId(d => d.parent);
+
+    let root;
+    try {
+        root = stratify(flatData);
+    } catch (e) {
+        console.warn("Could not stratify data (broken hierarchy)", e);
+        return;
+    }
+
+    // 3. Apply Tree Layout
+    treeLayout(root);
+
+    const nodes = root.descendants();
+    const links = root.links();
+
+    // 4. Update UI - Links
+    const link = gLink.selectAll(".link")
+        .data(links, d => d.target.id);
+
+    const linkEnter = link.enter().append("path")
+        .attr("class", "link")
+        .attr("d", d => {
+            const source = d.source;
+            const target = d.source; // Start at parent for animation
+            return `M${source.x},${source.y} C${source.x},${(source.y + target.y) / 2} ${target.x},${(source.y + target.y) / 2} ${target.x},${target.y}`;
+        });
+
+    link.merge(linkEnter).transition().duration(250)
+        .attr("d", d3.linkVertical()
+            .x(d => d.x)
+            .y(d => d.y)
+        );
+
+    link.exit().remove();
+
+    // 5. Update UI - Nodes
+    const node = gNode.selectAll(".node")
+        .data(nodes, d => d.id);
+
+    const nodeEnter = node.enter().append("g")
+        .attr("class", "node")
+        .attr("transform", d => `translate(${d.parent ? d.parent.x : d.x},${d.parent ? d.parent.y : d.y})`)
+        .attr("opacity", 0);
+
+    nodeEnter.append("circle")
+        .attr("r", 15);
+
+    nodeEnter.append("text")
+        .attr("dy", "0.31em")
+        .text(d => d.data.id);
+
+    const nodeUpdate = node.merge(nodeEnter);
+
+    // Apply state classes
+    nodeUpdate.attr("class", d => "node node-" + d.data.state);
+
+    // Add interactivity for Tooltips
+    nodeUpdate.on("mouseover", (event, d) => {
+        const fd = d.data;
+        d3Tooltip.transition().duration(200).style("opacity", 1);
+        d3Tooltip.html(`<b>${fd.id}</b>f = ${fd.f}<br/>g = ${fd.g}<br/>h = ${fd.h}`)
+            .style("left", (event.pageX + 15) + "px")
+            .style("top", (event.pageY - 15) + "px");
+    })
+        .on("mousemove", (event) => {
+            d3Tooltip.style("left", (event.pageX + 15) + "px")
+                .style("top", (event.pageY - 15) + "px");
+        })
+        .on("mouseout", () => {
+            d3Tooltip.transition().duration(200).style("opacity", 0);
+        });
+
+    nodeUpdate.transition().duration(250)
+        .attr("transform", d => `translate(${d.x},${d.y})`)
+        .attr("opacity", 1);
+
+    node.exit().remove();
+
+    // Zoom/pan to current node if available
+    if (snapshot.current) {
+        const currentDataNode = nodes.find(n => n.id === snapshot.current);
+        if (currentDataNode) {
+            const containerEle = document.getElementById('treeView');
+            const cw = containerEle.clientWidth;
+            const ch = containerEle.clientHeight;
+
+            // Adjust to center the current node in the view
+            const transform = d3.zoomIdentity
+                .translate(cw / 2 - currentDataNode.x, ch / 3 - currentDataNode.y)
+                .scale(1);
+
+            svg.transition().duration(300).call(zoomBehavior.transform, transform);
+        }
+    }
 }
 
 /* ── UI Rendering: Optimal Path ── */
@@ -365,29 +542,13 @@ function applyVisualizationSnapshot(snapshotIndex) {
     renderClosedList(snapshot);
 
     const nodeData = snapshot.currentData;
-    const newlyDiscoveredStr = snapshot.newNodes.length
-        ? snapshot.newNodes.map(w => `<span class="cyan">${w}</span>`).join(', ')
-        : 'ninguno';
-    const updatedNodesStr = snapshot.updNodes.length
-        ? snapshot.updNodes.map(w => `<span style="color:#ffd700">${w}</span>`).join(', ')
-        : '';
-
-    let logHtmlContent = `Expande <span class="orange">${snapshot.current}</span> | 
-    <span class="fg">g=${nodeData.g}</span> 
-    <span class="fh">h=${nodeData.h}</span> 
-    <span class="ff">f=${nodeData.f}</span> | 
-    Nuevos: ${newlyDiscoveredStr}`;
-
-    if (updatedNodesStr) {
-        logHtmlContent += ` | Actualizados: ${updatedNodesStr}`;
-    }
-
-    addLogEntry(snapshotIndex + 1, snapshot.goalFound ? '🎯' : '🔍', logHtmlContent);
-    updateExplanationText(`Actual: ${snapshot.current}  |  f=${nodeData.f}  g=${nodeData.g}  h=${nodeData.h}  |  Abierta: ${snapshot.open.size}  Cerrada: ${snapshot.closed.size}`);
+    // Use tree graph render instead of text logging
+    renderTreeGraph(snapshot);
+    updateExplanationText(t('EXP_ACTUAL', snapshot.current, nodeData.f, nodeData.g, nodeData.h, snapshot.open.size, snapshot.closed.size));
 
     // Handle goal state reached visually
     if (snapshot.goalFound) {
-        setPathBadgeStatus('ok', '✓ Encontrado');
+        setPathBadgeStatus('ok', t('PATH_OK'));
         renderOptimalPathDisplay(snapshot.optimalPath);
 
         document.getElementById('statsRow').style.display = 'flex';
@@ -395,10 +556,6 @@ function applyVisualizationSnapshot(snapshotIndex) {
         document.getElementById('sExplored').textContent = snapshot.closed.size;
         document.getElementById('sMaxOpen').textContent = currentAStarResult.maxOpen;
         document.getElementById('sTime').textContent = calculationTimeMs;
-
-        addLogEntry(snapshotIndex + 1, '🏆',
-            `<span class="green">¡Meta! Camino óptimo (${snapshot.optimalPath.length - 1} pasos): 
-      ${snapshot.optimalPath.map(w => `<b>${w}</b>`).join(' → ')}</span>`);
 
         stopPlayback();
         document.getElementById('stepBtn').disabled = true;
@@ -412,11 +569,11 @@ function startSolving() {
     const endParam = document.getElementById('endWord').value.trim().toUpperCase();
 
     if (startParam.length !== 4 || endParam.length !== 4) {
-        setPathBadgeStatus('fail', '⚠ 4 letras referidas');
+        setPathBadgeStatus('fail', t('ERR_LEN'));
         return;
     }
     if (startParam === endParam) {
-        setPathBadgeStatus('fail', '⚠ Palabras distintas');
+        setPathBadgeStatus('fail', t('ERR_SAME'));
         return;
     }
 
@@ -425,7 +582,7 @@ function startSolving() {
     if (!DICT.has(endParam)) DICT.add(endParam);
 
     resetVisualization();
-    setPathBadgeStatus('run', 'Calculando...');
+    setPathBadgeStatus('run', t('PATH_CALC'));
     document.getElementById('solveBtn').disabled = true;
 
     // Delay calculation slightly to allow UI to update
@@ -437,29 +594,27 @@ function startSolving() {
         document.getElementById('solveBtn').disabled = false;
 
         if (currentAStarResult.failed) {
-            setPathBadgeStatus('fail', 'Sin solución');
-            document.getElementById('pathBody').innerHTML = '<div class="empty-msg">No se encontró camino entre estas palabras.</div>';
+            setPathBadgeStatus('fail', t('PATH_FAIL'));
+            document.getElementById('pathBody').innerHTML = `<div class="empty-msg">${t('PATH_NO_FOUND')}</div>`;
             return;
         }
 
         algorithmSnapshots = currentAStarResult.snapshots;
         currentVisualStep = 0;
-        uiLogLinesCount = 0;
 
-        document.getElementById('stepLog').innerHTML = `
-      <div class="empty-msg">Presiona <b>Step →</b> para avanzar paso a paso, 
-      o <b>▶ Play</b> para reproducir automáticamente</div>`;
+        document.getElementById('treeView').innerHTML = ''; // Clear SVG explicitly to recreate
+        initTreeGraph(); // Re-init D3
 
         updateStepCounterDisplay(0, algorithmSnapshots.length);
-        setPathBadgeStatus('run', 'Listo — ' + algorithmSnapshots.length + ' iteraciones');
+        setPathBadgeStatus('run', t('MSG_READY', algorithmSnapshots.length));
 
-        document.getElementById('openList').innerHTML = '<div class="empty-msg">Presiona Step o Play para comenzar</div>';
+        document.getElementById('openList').innerHTML = `<div class="empty-msg">${t('MSG_PRESS')}</div>`;
 
         document.getElementById('playBtn').disabled = false;
         document.getElementById('stepBtn').disabled = false;
         document.getElementById('resetBtn').disabled = false;
 
-        updateExplanationText(`Listo — ${algorithmSnapshots.length} pasos calculados | ${startParam} → ${endParam}`);
+        updateExplanationText(t('EXP_READY', algorithmSnapshots.length, startParam, endParam));
     }, 30);
 }
 
@@ -479,7 +634,7 @@ function togglePlayback() {
 function startPlayback() {
     if (currentVisualStep >= algorithmSnapshots.length) { return; }
     isPlaying = true;
-    document.getElementById('playBtn').textContent = '⏸ Pausa';
+    document.getElementById('playBtn').textContent = t('BTN_PAUSE');
     processPlaybackTick();
 }
 
@@ -495,33 +650,33 @@ function processPlaybackTick() {
 function stopPlayback() {
     isPlaying = false;
     clearTimeout(playIntervalTimer);
-    document.getElementById('playBtn').textContent = '▶ Play';
+    document.getElementById('playBtn').textContent = t('BTN_PLAY');
 }
 
 function resetVisualization() {
     stopPlayback();
     algorithmSnapshots = [];
     currentVisualStep = 0;
-    uiLogLinesCount = 0;
     currentAStarResult = null;
 
     ['openList', 'closedList'].forEach(id => {
-        document.getElementById(id).innerHTML = '<div class="empty-msg">Vacía</div>';
+        document.getElementById(id).innerHTML = `<div class="empty-msg" data-i18n="MSG_EMPTY">${t('MSG_EMPTY')}</div>`;
     });
 
     document.getElementById('openCount').textContent = '0';
     document.getElementById('closedCount').textContent = '0';
-    document.getElementById('stepLog').innerHTML = '<div class="empty-msg">Los pasos del algoritmo aparecerán aquí</div>';
-    document.getElementById('logCount').textContent = '0';
-    document.getElementById('pathBody').innerHTML = '<div class="empty-msg">El camino aparecerá al finalizar</div>';
+
+    document.getElementById('treeView').innerHTML = ''; // Remove SVG
+
+    document.getElementById('pathBody').innerHTML = `<div class="empty-msg" data-i18n="PATH_NO_PATH">${t('PATH_NO_PATH')}</div>`;
     document.getElementById('statsRow').style.display = 'none';
 
     document.getElementById('playBtn').disabled = true;
-    document.getElementById('playBtn').textContent = '▶ Play';
+    document.getElementById('playBtn').textContent = t('BTN_PLAY');
     document.getElementById('stepBtn').disabled = true;
     document.getElementById('resetBtn').disabled = true;
 
-    setPathBadgeStatus('idle', 'Esperando');
+    setPathBadgeStatus('idle', t('PATH_WAIT'));
     updateStepCounterDisplay(0, 0);
     updateExplanationText('—');
 }
