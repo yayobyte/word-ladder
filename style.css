@@ -492,17 +492,9 @@ header {
   color: var(--accent4);
 }
 
-.node-best-f {
-  border-color: rgba(var(--accent2-rgb), 0.9) !important;
-  background: rgba(var(--accent2-rgb), 0.25) !important;
-  color: var(--accent2) !important;
-  box-shadow: 0 0 12px rgba(var(--accent2-rgb), 0.5) !important;
-  transform: scale(1.05);
-  z-index: 5;
-}
-
-.node-best-f .node-score {
+.node-best-f-group .node-score {
   background: var(--accent2);
+  /* Red/Orange Accent */
   color: #fff;
   border-color: var(--accent2);
 }

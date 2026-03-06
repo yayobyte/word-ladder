@@ -224,28 +224,91 @@ function renderOpenList(snapshot) {
     const wrapper = document.createElement('div');
     wrapper.className = 'nodes-wrap';
 
-    // Sort items primarily by 'f' score for display
-    const sortedNodes = [...snapshot.open.entries()].sort((a, b) => a[1].f - b[1].f);
+    // 1. Find the absolute minimum 'f' score to determine our priority group
+    let minF = Infinity;
+    for (const nodeData of snapshot.open.values()) {
+        if (nodeData.f < minF) {
+            minF = nodeData.f;
+        }
+    }
 
-    sortedNodes.forEach(([word, nodeData], index) => {
+    // 2. Sort items by true algorithm priority ('f' then 'h')
+    const sortedNodes = [...snapshot.open.entries()].sort((a, b) => {
+        if (a[1].f !== b[1].f) return a[1].f - b[1].f;
+        return a[1].h - b[1].h;
+    });
+
+    // 3. For the group where f === minF, find the unique 'h' values to calculate gradient steps
+    const minFGroupHValues = [...new Set(
+        sortedNodes.filter(n => n[1].f === minF).map(n => n[1].h)
+    )].sort((a, b) => a - b);
+
+
+    sortedNodes.forEach(([word, nodeData]) => {
         const chip = document.createElement('div');
         chip.className = 'node-chip node-open';
-        if (index === 0) {
-            chip.className += ' node-best-f';
+
+        // Create the f-score badge
+        const scoreTag = document.createElement('div');
+        scoreTag.className = 'node-score';
+        scoreTag.textContent = `f=${nodeData.f}`;
+
+        // Define color states for the lowest 'f' group
+        if (nodeData.f === minF) {
+            chip.classList.add('node-best-f-group'); // This applies to ALL nodes in the lowest 'f' group
+
+            // Calculate opacity based on rank of 'h' where lower 'h' = darker higher-contrast orange
+            // rank index 0 (lowest h) gets highest opacity, index 1 is lighter, etc.
+            const hRankIndex = minFGroupHValues.indexOf(nodeData.h);
+            const intensity = Math.max(0.1, 1 - (hRankIndex * 0.25)); // 1.0, 0.75, 0.50...
+
+            // Apply styles using standard inline CSS properties
+            chip.style.backgroundColor = `rgba(255, 107, 53, ${intensity * 0.25})`;
+            chip.style.borderColor = `rgba(255, 107, 53, ${Math.min(1, intensity + 0.3)})`;
+            chip.style.color = `rgba(255, 107, 53, ${intensity < 0.3 ? 0.7 : 1})`;
+
+            // Also fade the attached badge
+            scoreTag.style.opacity = Math.max(0.4, intensity);
+
+            // Highlight the absolute best algorithmic choice (lowest h inside the lowest f group) with a strong shadow
+            if (hRankIndex === 0) {
+                chip.style.boxShadow = `0 0 12px rgba(255, 107, 53, 0.5)`;
+                chip.style.transform = `scale(1.05)`;
+                chip.style.zIndex = `5`;
+            } else {
+                // Ensure other items in the group don't accidentally inherit large scaling or shadows
+                chip.style.boxShadow = `0 0 4px rgba(255, 107, 53, ${intensity * 0.3})`;
+                chip.style.transform = `scale(1.0)`;
+                chip.style.zIndex = `2`;
+            }
         }
 
         chip.textContent = word;
 
-        if (snapshot.newNodes.includes(word) && index !== 0) {
+        if (snapshot.newNodes.includes(word) && nodeData.f !== minF) {
             chip.style.boxShadow = '0 0 8px rgba(34,197,94,0.6)'; // Highlight new
         }
-        if (snapshot.updNodes.includes(word) && index !== 0) {
+        if (snapshot.updNodes.includes(word) && nodeData.f !== minF) {
             chip.style.boxShadow = '0 0 8px rgba(255,214,0,0.5)'; // Highlight updated
         }
 
-        const scoreTag = document.createElement('div');
-        scoreTag.className = 'node-score';
-        scoreTag.textContent = `f=${nodeData.f}`;
+        // Add tooltip listeners using the existing D3 tooltip style structure
+        chip.addEventListener('mouseover', (e) => {
+            if (!d3Tooltip) return;
+            d3Tooltip.transition().duration(200).style("opacity", 1);
+            d3Tooltip.html(`<b>${word}</b>f = <span class="ff">${nodeData.f}</span><br/>g = <span class="fg">${nodeData.g}</span><br/>h = <span class="fh">${nodeData.h}</span>`)
+                .style("left", (e.pageX + 15) + "px")
+                .style("top", (e.pageY - 15) + "px");
+        });
+        chip.addEventListener('mousemove', (e) => {
+            if (!d3Tooltip) return;
+            d3Tooltip.style("left", (e.pageX + 15) + "px")
+                .style("top", (e.pageY - 15) + "px");
+        });
+        chip.addEventListener('mouseout', (e) => {
+            if (!d3Tooltip) return;
+            d3Tooltip.transition().duration(200).style("opacity", 0);
+        });
 
         chip.appendChild(scoreTag);
         wrapper.appendChild(chip);
