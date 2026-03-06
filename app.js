@@ -32,19 +32,16 @@ const DICT = new Set([
 
 /* ── A* Algorithm Logic with Snapshot Recording ── */
 
-/**
- * Calculates the Hamming distance between two strings.
- * This represents the number of differing characters at corresponding positions.
- * Used as our heuristic function `h(n)`.
- */
-function calculateHammingDistance(wordA, wordB) {
+function calculateHeuristic(wordA, wordB, type) {
     let distance = 0;
     for (let i = 0; i < wordA.length; i++) {
         if (wordA[i] !== wordB[i]) {
             distance++;
         }
     }
-    return distance;
+    if (type === 'zero') return 0;
+    if (type === 'greedy') return distance * 3;
+    return distance; // default 'hamming'
 }
 
 /**
@@ -74,7 +71,7 @@ function getNeighbors(word) {
  * Core A* Search Algorithm, modified to record state snapshots for visualization.
  * Returns an object with the recorded snapshots and maximum open list size.
  */
-function runAStarAlgorithm(startWord, goalWord) {
+function runAStarAlgorithm(startWord, goalWord, heuristicType = 'hamming') {
     const stepSnapshots = [];
 
     // Maps to store our exploration frontiers.
@@ -85,7 +82,7 @@ function runAStarAlgorithm(startWord, goalWord) {
 
     let maxOpenListSize = 0;
 
-    const initialHeuristic = calculateHammingDistance(startWord, goalWord);
+    const initialHeuristic = calculateHeuristic(startWord, goalWord, heuristicType);
     openList.set(startWord, {
         g: 0,
         h: initialHeuristic,
@@ -125,7 +122,7 @@ function runAStarAlgorithm(startWord, goalWord) {
             }
 
             const neighborGScore = bestNodeData.g + 1;
-            const neighborHScore = calculateHammingDistance(neighborWord, goalWord);
+            const neighborHScore = calculateHeuristic(neighborWord, goalWord, heuristicType);
             const neighborFScore = neighborGScore + neighborHScore;
 
             const existingNeighbor = openList.get(neighborWord);
@@ -648,10 +645,12 @@ function startSolving() {
     setPathBadgeStatus('run', t('PATH_CALC'));
     document.getElementById('solveBtn').disabled = true;
 
+    const heuristicType = document.getElementById('heuristicSelect').value;
+
     // Delay calculation slightly to allow UI to update
     setTimeout(() => {
         const t0 = performance.now();
-        currentAStarResult = runAStarAlgorithm(startParam, endParam);
+        currentAStarResult = runAStarAlgorithm(startParam, endParam, heuristicType);
         calculationTimeMs = (performance.now() - t0).toFixed(1);
 
         document.getElementById('solveBtn').disabled = false;

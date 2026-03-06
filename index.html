@@ -48,6 +48,15 @@
         <input class="word-input" id="endWord" maxlength="4" value="LOBO"
           oninput="this.value=this.value.toUpperCase().replace(/[^A-Z]/g,'')">
       </div>
+      <div class="panel">
+        <div class="panel-label" data-i18n="LBL_HEURISTIC">Heurística</div>
+        <select class="word-input" id="heuristicSelect"
+          style="width: auto; padding: 0.5rem; font-size: 1rem; border-radius: 8px; border: 1px solid var(--border); background: var(--panel); color: var(--text);">
+          <option value="hamming">Hamming (A* Óptimo)</option>
+          <option value="zero">Cero (Dijkstra / BFS)</option>
+          <option value="greedy">Greedy (Hamming × 3)</option>
+        </select>
+      </div>
     </div>
 
     <div class="presets">
