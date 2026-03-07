@@ -118,7 +118,7 @@ function runAStarAlgorithm(startWord, goalWord, heuristicType = 'hamming') {
 
         for (const neighborWord of neighbors) {
             if (closedList.has(neighborWord)) {
-                continue; // Already fully evaluated
+                continue;
             }
 
             const neighborGScore = bestNodeData.g + 1;
@@ -127,6 +127,7 @@ function runAStarAlgorithm(startWord, goalWord, heuristicType = 'hamming') {
 
             const existingNeighbor = openList.get(neighborWord);
 
+            // Correction Check:
             // If neighbor is not in open list OR we found a cheaper path to it...
             if (!existingNeighbor || existingNeighbor.g > neighborGScore) {
                 if (existingNeighbor) {
