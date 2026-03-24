@@ -543,7 +543,7 @@ header {
 
 .viz-body.graph-container {
   max-height: none;
-  height: 650px;
+  height: 400px;
   padding: 0;
 }
 
@@ -625,7 +625,7 @@ header {
 /* ── Graph Container ── */
 .graph-container {
   width: 100%;
-  height: 650px;
+  height: 400px;
   cursor: grab;
   background: var(--panel2);
   position: relative;

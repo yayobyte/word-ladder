@@ -96,36 +96,6 @@
       <span class="explain-txt" id="explainTxt">—</span>
     </div>
 
-    <!-- Legend -->
-    <div class="legend">
-      <div class="leg">
-        <div class="leg-dot dot-circle" style="background:rgba(0,229,255,0.3);border:2px solid rgba(0,229,255,0.7)">
-        </div>
-        <span data-i18n="LEG_PROCESS">Proceso</span>
-      </div>
-      <div class="leg">
-        <div class="leg-dot" style="background:rgba(167,139,250,0.2);border:2px solid rgba(167,139,250,0.6)"></div>
-        <span data-i18n="LEG_RESOURCE">Recurso</span>
-      </div>
-      <div class="leg">
-        <div class="leg-line-dashed" style="border-color:rgba(255,107,53,0.7)"></div>
-        <span data-i18n="LEG_WAIT">Espera (solicita)</span>
-      </div>
-      <div class="leg">
-        <div class="leg-line" style="background:rgba(34,197,94,0.7)"></div>
-        <span data-i18n="LEG_HOLD">Asignado (posee)</span>
-      </div>
-      <div class="leg">
-        <div class="leg-dot dot-circle" style="background:rgba(255,107,53,0.25);border:2px solid rgba(255,107,53,0.7)">
-        </div>
-        <span data-i18n="LEG_VISITING">Nodo actual BFS</span>
-      </div>
-      <div class="leg">
-        <div class="leg-dot dot-circle" style="background:rgba(239,68,68,0.25);border:2px solid rgba(239,68,68,0.7)">
-        </div>
-        <span data-i18n="LEG_CYCLE">Ciclo (Deadlock)</span>
-      </div>
-    </div>
 
     <!-- Queue / Visited panels -->
     <div class="viz-grid">
@@ -146,6 +116,17 @@
         <div class="viz-body" id="visitedList">
           <div class="empty-msg" data-i18n="MSG_EMPTY">Vacía</div>
         </div>
+      </div>
+    </div>
+
+    <!-- Result area (replaces path area) -->
+    <div class="result-area">
+      <div class="result-header">
+        <span class="result-title" data-i18n="RESULT_TITLE">Resultado de Detección</span>
+        <span class="result-badge badge-idle" id="resultBadge" data-i18n="RESULT_WAIT">Esperando</span>
+      </div>
+      <div class="result-body" id="resultBody">
+        <div class="empty-msg" data-i18n="RESULT_NO_ANALYSIS">El resultado aparecerá al finalizar</div>
       </div>
     </div>
 
@@ -177,17 +158,6 @@
       <div class="stat">
         <div class="stat-val" id="sTime">-</div>
         <div class="stat-key">ms</div>
-      </div>
-    </div>
-
-    <!-- Result area (replaces path area) -->
-    <div class="result-area">
-      <div class="result-header">
-        <span class="result-title" data-i18n="RESULT_TITLE">Resultado de Detección</span>
-        <span class="result-badge badge-idle" id="resultBadge" data-i18n="RESULT_WAIT">Esperando</span>
-      </div>
-      <div class="result-body" id="resultBody">
-        <div class="empty-msg" data-i18n="RESULT_NO_ANALYSIS">El resultado aparecerá al finalizar</div>
       </div>
     </div>
 
