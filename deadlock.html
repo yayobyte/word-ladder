@@ -1,0 +1,193 @@
+<!DOCTYPE html>
+<html lang="es">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Detección de Deadlock · BFS</title>
+  <meta name="description"
+    content="Visualización paso a paso del algoritmo BFS para detección de deadlocks en grafos de asignación de recursos (HOLT) de Sistemas Operativos.">
+  <link
+    href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=IBM+Plex+Mono:wght@400;600;700&family=IBM+Plex+Sans:wght@300;400;600&display=swap"
+    rel="stylesheet">
+  <link rel="stylesheet" href="./deadlock.css">
+  <script src="https://d3js.org/d3.v7.min.js"></script>
+</head>
+
+<body>
+  <div class="app">
+
+    <div class="theme-controls">
+      <button class="icon-btn" id="langToggle" onclick="toggleLanguage()">EN</button>
+      <button class="icon-btn" id="themeToggle" onclick="toggleTheme()">☀️</button>
+    </div>
+
+    <a class="back-link" href="./index.html">← Word Ladder (A*)</a>
+
+    <header>
+      <div class="title" data-i18n="APP_TITLE">Detección de Interbloqueos</div>
+      <div class="subtitle" data-i18n="APP_SUB">Grafos de Asignación de Recursos (HOLT) · BFS Paso a Paso</div>
+      <div class="badge" data-i18n="APP_BADGE">⬡ &nbsp; BFS · Detección de Trayectorias Cerradas en Sistemas
+        Operativos</div>
+    </header>
+
+    <!-- Concept explanation (replaces formula box) -->
+    <div class="concept-box">
+      <div class="concept-title" data-i18n="CONCEPT_TITLE">¿Cómo funciona?</div>
+      <div class="concept-item" data-i18n="CONCEPT_1">Un <b>Grafo de Asignación de Recursos (RAG)</b> modela procesos
+        y recursos del S.O.</div>
+      <div class="concept-item" data-i18n="CONCEPT_2">Los <span class="edge-wait-label">arcos de espera</span> van del
+        proceso al recurso que solicita.</div>
+      <div class="concept-item" data-i18n="CONCEPT_3">Los <span class="edge-hold-label">arcos de asignación</span> van
+        del recurso al proceso que lo posee.</div>
+      <div class="concept-item" data-i18n="CONCEPT_4">BFS recorre el grafo buscando <span
+          class="cycle-label">ciclos</span> → si encuentra uno, hay <b>deadlock</b>.</div>
+    </div>
+
+    <!-- Algorithm & Presets -->
+    <div class="input-row" style="grid-template-columns: 1fr 2fr; margin-bottom: 1.2rem;">
+      <div class="panel">
+        <div class="panel-label" data-i18n="LBL_ALGORITHM">Algoritmo</div>
+        <select class="algo-select" id="algoSelect">
+          <option value="bfs" data-i18n="ALG_BFS">BFS (Anchura)</option>
+          <option value="dfs" data-i18n="ALG_DFS">DFS (Profundidad)</option>
+        </select>
+      </div>
+      <div class="panel">
+        <div class="panel-label" data-i18n="LBL_PRESETS">Escenarios:</div>
+        <div class="presets" style="margin-bottom: 0;">
+          <button class="preset-btn active" data-preset="simple" onclick="loadPreset('simple')"
+            data-i18n="PRESET_SIMPLE">Deadlock Simple</button>
+          <button class="preset-btn" data-preset="safe" onclick="loadPreset('safe')" data-i18n="PRESET_SAFE">Sin
+            Deadlock</button>
+          <button class="preset-btn" data-preset="complex" onclick="loadPreset('complex')"
+            data-i18n="PRESET_COMPLEX">Deadlock Complejo</button>
+          <button class="preset-btn" data-preset="gridlock" onclick="loadPreset('gridlock')"
+            data-i18n="PRESET_GRIDLOCK">Atascamiento</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Action buttons -->
+    <div class="btn-row">
+      <button class="btn btn-primary" id="solveBtn" onclick="startSolving()" data-i18n="BTN_SOLVE">⬡ Detectar con
+        BFS</button>
+      <button class="btn btn-secondary" id="playBtn" onclick="togglePlayback()" disabled data-i18n="BTN_PLAY">▶
+        Play</button>
+      <button class="btn btn-secondary" id="stepBtn" onclick="advanceStep()" disabled data-i18n="BTN_STEP">Step
+        →</button>
+      <button class="btn btn-secondary" id="resetBtn" onclick="resetVisualization()" disabled data-i18n="BTN_RESET">↺
+        Reset</button>
+    </div>
+
+    <!-- Controls bar -->
+    <div class="ctrl-bar">
+      <span class="ctrl-lbl" data-i18n="LBL_SPEED">Velocidad</span>
+      <input class="speed-slider" type="range" id="speedSlider" min="1" max="10" value="4">
+      <span class="ctrl-lbl" data-i18n="LBL_STEP">Paso</span>
+      <span class="step-ctr" id="stepCtr">0 / 0</span>
+      <span class="explain-txt" id="explainTxt">—</span>
+    </div>
+
+    <!-- Legend -->
+    <div class="legend">
+      <div class="leg">
+        <div class="leg-dot dot-circle" style="background:rgba(0,229,255,0.3);border:2px solid rgba(0,229,255,0.7)">
+        </div>
+        <span data-i18n="LEG_PROCESS">Proceso</span>
+      </div>
+      <div class="leg">
+        <div class="leg-dot" style="background:rgba(167,139,250,0.2);border:2px solid rgba(167,139,250,0.6)"></div>
+        <span data-i18n="LEG_RESOURCE">Recurso</span>
+      </div>
+      <div class="leg">
+        <div class="leg-line-dashed" style="border-color:rgba(255,107,53,0.7)"></div>
+        <span data-i18n="LEG_WAIT">Espera (solicita)</span>
+      </div>
+      <div class="leg">
+        <div class="leg-line" style="background:rgba(34,197,94,0.7)"></div>
+        <span data-i18n="LEG_HOLD">Asignado (posee)</span>
+      </div>
+      <div class="leg">
+        <div class="leg-dot dot-circle" style="background:rgba(255,107,53,0.25);border:2px solid rgba(255,107,53,0.7)">
+        </div>
+        <span data-i18n="LEG_VISITING">Nodo actual BFS</span>
+      </div>
+      <div class="leg">
+        <div class="leg-dot dot-circle" style="background:rgba(239,68,68,0.25);border:2px solid rgba(239,68,68,0.7)">
+        </div>
+        <span data-i18n="LEG_CYCLE">Ciclo (Deadlock)</span>
+      </div>
+    </div>
+
+    <!-- Queue / Visited panels -->
+    <div class="viz-grid">
+      <div class="viz-panel">
+        <div class="viz-header">
+          <span class="viz-title" style="color:#ff6b35" data-i18n="TITLE_QUEUE">⬡ Cola BFS (Frontera)</span>
+          <span class="viz-count" id="queueCount" style="color:#ff6b35;border-color:rgba(255,107,53,0.3)">0</span>
+        </div>
+        <div class="viz-body" id="queueList">
+          <div class="empty-msg" data-i18n="MSG_EMPTY">Vacía</div>
+        </div>
+      </div>
+      <div class="viz-panel">
+        <div class="viz-header">
+          <span class="viz-title" style="color:#a78bfa" data-i18n="TITLE_VISITED">⬡ Visitados (Explorados)</span>
+          <span class="viz-count" id="visitedCount" style="color:#a78bfa;border-color:rgba(167,139,250,0.3)">0</span>
+        </div>
+        <div class="viz-body" id="visitedList">
+          <div class="empty-msg" data-i18n="MSG_EMPTY">Vacía</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- D3 Graph -->
+    <div class="viz-panel" style="margin-bottom:1rem">
+      <div class="viz-header">
+        <span class="viz-title" style="color:var(--text)" data-i18n="TITLE_GRAPH">🔗 Grafo de Asignación de
+          Recursos</span>
+      </div>
+      <div class="viz-body graph-container" id="graphView" style="padding:0;">
+        <!-- SVG injected here -->
+      </div>
+    </div>
+
+    <!-- Stats -->
+    <div class="stats-row" id="statsRow" style="display:none">
+      <div class="stat">
+        <div class="stat-val" id="sSteps">-</div>
+        <div class="stat-key" data-i18n="STAT_STEPS">Pasos BFS</div>
+      </div>
+      <div class="stat">
+        <div class="stat-val" id="sVisited">-</div>
+        <div class="stat-key" data-i18n="STAT_VISITED">Visitados</div>
+      </div>
+      <div class="stat">
+        <div class="stat-val" id="sCycleLen">-</div>
+        <div class="stat-key" data-i18n="STAT_CYCLE_LEN">Nodos en ciclo</div>
+      </div>
+      <div class="stat">
+        <div class="stat-val" id="sTime">-</div>
+        <div class="stat-key">ms</div>
+      </div>
+    </div>
+
+    <!-- Result area (replaces path area) -->
+    <div class="result-area">
+      <div class="result-header">
+        <span class="result-title" data-i18n="RESULT_TITLE">Resultado de Detección</span>
+        <span class="result-badge badge-idle" id="resultBadge" data-i18n="RESULT_WAIT">Esperando</span>
+      </div>
+      <div class="result-body" id="resultBody">
+        <div class="empty-msg" data-i18n="RESULT_NO_ANALYSIS">El resultado aparecerá al finalizar</div>
+      </div>
+    </div>
+
+  </div>
+
+  <script src="./deadlock-i18n.js"></script>
+  <script src="./deadlock-app.js"></script>
+</body>
+
+</html>
