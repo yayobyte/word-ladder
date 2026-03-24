@@ -2,6 +2,8 @@
 const i18n = {
     es: {
         APP_TITLE: "Detección de Interbloqueos",
+        NAV_WORD_LADDER: "🪜 Escalera",
+        NAV_DEADLOCK: "⬡ Interbloqueos",
         APP_SUB: "Grafos de Asignación de Recursos (HOLT)",
         APP_BADGE: "⬡   BFS/DFS · Detección de Trayectorias Cerradas en Sistemas Operativos",
         CONCEPT_TITLE: "¿Cómo funciona?",
@@ -57,6 +59,8 @@ const i18n = {
     },
     en: {
         APP_TITLE: "Deadlock Detection",
+        NAV_WORD_LADDER: "🪜 Ladder",
+        NAV_DEADLOCK: "⬡ Deadlock",
         APP_SUB: "Resource Allocation Graphs (HOLT)",
         APP_BADGE: "⬡   BFS/DFS · Closed Trajectory Detection in Operating Systems",
         CONCEPT_TITLE: "How does it work?",

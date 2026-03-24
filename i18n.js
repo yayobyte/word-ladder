@@ -2,6 +2,8 @@
 const i18n = {
     es: {
         APP_TITLE: "Escalera de Palabras",
+        NAV_WORD_LADDER: "🪜 Escalera",
+        NAV_DEADLOCK: "⬡ Interbloqueos",
         APP_SUB: "Word Ladder · Visualización A* Paso a Paso",
         APP_BADGE: "⬡ &nbsp; f(n) = g(n) + h(n) · Búsqueda Heurística Óptima",
         F_NOTE_G: "<span class=\"fg\">g</span> = pasos dados desde el inicio",
@@ -47,6 +49,8 @@ const i18n = {
     },
     en: {
         APP_TITLE: "Word Ladder",
+        NAV_WORD_LADDER: "🪜 Ladder",
+        NAV_DEADLOCK: "⬡ Deadlock",
         APP_SUB: "Word Ladder · Step by Step A* Visualization",
         APP_BADGE: "⬡ &nbsp; f(n) = g(n) + h(n) · Optimal Heuristic Search",
         F_NOTE_G: "<span class=\"fg\">g</span> = steps taken from start",
